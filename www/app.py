@@ -46,8 +46,10 @@ async def logger_factory(app, handler):
 
 
 async def auth_factory(app, handler):
-    from www.handlers import COOKIE_NAME, cookie2user
     async def auth(request):
+        if request.path.startswith('/static/'):
+            return await handler(request)
+        from www.handlers import COOKIE_NAME, cookie2user
         logging.info('check user: %s %s' % (request.method, request.path))
         request.__user__ = None
         cookie_str = request.cookies.get(COOKIE_NAME)
@@ -135,8 +137,8 @@ def datetime_filter(t):
 
 async def init(loop):
     await create_pool(loop=loop, host=configs['db']['host'], port=configs['db']['port'],
-                              user=configs['db']['user'],
-                              password=configs['db']['password'], db=configs['db']['db'])
+                      user=configs['db']['user'],
+                      password=configs['db']['password'], db=configs['db']['db'])
     app = web.Application(loop=loop, middlewares=[
         logger_factory, auth_factory, response_factory
     ])
