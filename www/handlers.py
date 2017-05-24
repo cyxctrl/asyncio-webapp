@@ -8,7 +8,7 @@ from aiohttp import web
 from www.coroweb import get, post
 from www.models import User, Comment, Blog, next_id
 from www.config import configs
-from www.apis import APIValueError, APIPermissionError, APIError
+from www.apis import Page, APIValueError, APIPermissionError, APIError, APIResourceNotFoundError
 from www.markdown2 import markdown
 
 COOKIE_NAME = 'awesession'
@@ -91,7 +91,7 @@ async def get_blog(id):
         c.html_content = text2html(c.content)
     blog.html_content = markdown(blog.content)
     return {
-        '__template__': 'blog.html',
+        '__template__': 'blogs.html',
         'blog': blog,
         'comments': comments
     }
@@ -144,6 +144,14 @@ def signout(request):
     return r
 
 
+@get('/manage/blogs')
+def manage_blogs(*, page='1'):
+    return {
+        '__template__': 'manage_blogs.html',
+        'page_index': get_page_index(page)
+    }
+
+
 @get('/manage/blogs/create')
 def manage_create_blog():
     return {
@@ -180,6 +188,17 @@ async def api_register_user(*, email, name, passwd):
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
     user.passwd = '******'
     return r
+
+
+@get('/api/blogs')
+async def api_blogs(*, page='1'):
+    page_index = get_page_index(page)
+    num = await Blog.find_number('count(id)')
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page=p, blogs=())
+    blogs = await Blog.find_all(orderBy='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, blogs=blogs)
 
 
 @get('/api/blogs/{id}')
