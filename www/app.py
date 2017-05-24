@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import logging
-import orm
 import asyncio
 import os
 import json
@@ -8,8 +7,9 @@ import time
 from datetime import datetime
 from aiohttp import web
 from jinja2 import Environment, FileSystemLoader
-from coroweb import add_routes, add_static
-from config import configs
+from www.orm import create_pool
+from www.coroweb import add_routes, add_static
+from www.config import configs
 
 logging.basicConfig(level=logging.INFO)
 
@@ -43,6 +43,24 @@ async def logger_factory(app, handler):
         return await handler(request)
 
     return logger
+
+
+async def auth_factory(app, handler):
+    from www.handlers import COOKIE_NAME, cookie2user
+    async def auth(request):
+        logging.info('check user: %s %s' % (request.method, request.path))
+        request.__user__ = None
+        cookie_str = request.cookies.get(COOKIE_NAME)
+        if cookie_str:
+            user = await cookie2user(cookie_str)
+            if user:
+                logging.info('set current user: %s' % user.email)
+                request.__user__ = user
+        if request.path.startswith('/manage/') and (request.__user__ is None or not request.__user__.admin):
+            return web.HTTPFound('/signin')
+        return await handler(request)
+
+    return auth
 
 
 async def data_factory(app, handler):
@@ -83,6 +101,7 @@ async def response_factory(app, handler):
                 resp.content_type = 'application/json;charset=utf-8'
                 return resp
             else:
+                r['__user__'] = request.__user__
                 resp = web.Response(body=app['__templating__'].get_template(template).render(**r).encode('utf-8'))
                 resp.content_type = 'text/html;charset=utf-8'
                 return resp
@@ -115,11 +134,11 @@ def datetime_filter(t):
 
 
 async def init(loop):
-    await orm.create_pool(loop=loop, host=configs['db'].get('host', '127.0.0.1'), port=configs['db'].get('port', 3306),
-                          user=configs['db']['user'], password=configs['db']['password'],
-                          db=configs['db'].get('db', 'awesome'))
+    await create_pool(loop=loop, host=configs['db']['host'], port=configs['db']['port'],
+                              user=configs['db']['user'],
+                              password=configs['db']['password'], db=configs['db']['db'])
     app = web.Application(loop=loop, middlewares=[
-        logger_factory, response_factory
+        logger_factory, auth_factory, response_factory
     ])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')

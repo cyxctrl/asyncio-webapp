@@ -15,7 +15,14 @@ class APIValueError(APIError):
     """指示输入值有错误或无效。数据指定输入表单的错误字段。"""
 
     def __init__(self, field, message=''):
-        super(APIValueError, self).__init__('value:notfound', field, message)
+        super(APIValueError, self).__init__('value:invalid', field, message)
+
+
+class APIResourceNotFoundError(APIError):
+    """指示资源未找到。数据指定资源名称。"""
+
+    def __init__(self, field, message=''):
+        super(APIResourceNotFoundError, self).__init__('value:notfound', field, message)
 
 
 class APIPermissionError(APIError):

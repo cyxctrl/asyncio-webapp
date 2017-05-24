@@ -6,7 +6,7 @@ import logging
 import asyncio
 from urllib import parse
 from aiohttp import web
-from apis import APIError
+from www.apis import APIError
 
 
 def get(path):
@@ -32,7 +32,7 @@ def post(path):
         def wrapper(*args, **kw):
             return func(*args, **kw)
 
-        wrapper.__method__ = 'post'
+        wrapper.__method__ = 'POST'
         wrapper.__route__ = path
         return wrapper
 
@@ -43,7 +43,7 @@ def get_required_kw_args(fn):
     args = list()
     params = inspect.signature(fn).parameters
     for name, param in params.items():
-        if param.kind == inspect.Parameter.KEYWORD_ONLY:
+        if param.kind == inspect.Parameter.KEYWORD_ONLY and param.default == inspect.Parameter.empty:
             args.append(name)
     return tuple(args)
 
@@ -79,8 +79,9 @@ def has_request_arg(fn):
         if name == 'request':
             found = True
             continue
-        if found and (param.kind != inspect.Parameter.VAR_POSITIONAL and param.kind != inspect.Parameter.KEYWORD_ONLY
-                      and param.kind != inspect.Parameter.VAR_KEYWORD):
+        if found and (param.kind != inspect.Parameter.VAR_POSITIONAL and
+                              param.kind != inspect.Parameter.KEYWORD_ONLY and
+                              param.kind != inspect.Parameter.VAR_KEYWORD):
             raise ValueError(
                 'request parameter must be the last named parameter in function: %s%s' % (fn.__name__, str(sig)))
     return found
@@ -129,7 +130,12 @@ class RequestHandler:
                     if name in kw:
                         copy[name] = kw[name]
                 kw = copy
-        if self._has_named_kw_args:
+            # check named arg:
+            for k, v in request.match_info.items():
+                if k in kw:
+                    logging.warning('Duplicate arg name in named arg and kw args: %s' % k)
+                kw[k] = v
+        if self._has_request_arg:
             kw['request'] = request
         # check required kw:
         if self._required_kw_args:
@@ -146,7 +152,7 @@ class RequestHandler:
 
 def add_static(app):
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
-    app.router.add_static('/static', path)
+    app.router.add_static('/static/', path)
     logging.info('add static %s => %s' % ('/static/', path))
 
 
