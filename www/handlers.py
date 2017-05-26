@@ -5,11 +5,11 @@ import time
 import logging
 import re
 from aiohttp import web
-from www.coroweb import get, post
-from www.models import User, Comment, Blog, next_id
-from www.config import configs
-from www.apis import Page, APIValueError, APIPermissionError, APIError, APIResourceNotFoundError
-from www.markdown2 import markdown
+from coroweb import get, post
+from models import User, Comment, Blog, next_id
+from config import configs
+from apis import Page, APIValueError, APIPermissionError, APIError
+from markdown2 import markdown
 
 COOKIE_NAME = 'awesession'
 _COOKIE_KEY = configs.get('session', 'abcdefg')
